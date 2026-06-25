@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>KORVA Workforce Cloud — Discovery + Prototype MVP</title>
+<meta name="description" content="KORVA Workforce Cloud — end-to-end workforce lifecycle from employer demand to worker earnings."/>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script>
+  tailwind.config = {
+    darkMode: 'class',
+    theme: {
+      extend: {
+        fontFamily: {
+          display: ['"Space Grotesk"', 'sans-serif'],
+          sans: ['Inter', 'sans-serif'],
+        },
+        colors: {
+          korva: {
+            50:  '#eef9ff',
+            100: '#d9f0ff',
+            200: '#bce4ff',
+            300: '#8ed2ff',
+            400: '#58b7ff',
+            500: '#3097ff',
+            600: '#1e78f5',
+            700: '#1860dc',
+            800: '#1a4fb0',
+            900: '#1b448b',
+          },
+          ink: {
+            900: '#07090f',
+            800: '#0c1018',
+            700: '#121826',
+            600: '#1a2233',
+            500: '#222d44',
+          }
+        },
+        boxShadow: {
+          'glow': '0 0 0 1px rgba(48,151,255,0.25), 0 10px 40px -10px rgba(48,151,255,0.45)',
+        },
+        keyframes: {
+          fadeUp: { '0%': {opacity:0, transform:'translateY(12px)'}, '100%':{opacity:1, transform:'translateY(0)'} },
+          pulseDot: { '0%,100%':{opacity:1}, '50%':{opacity:.35}},
+          shimmer: { '0%': {backgroundPosition:'-200% 0'}, '100%':{backgroundPosition:'200% 0'}}
+        },
+        animation: {
+          'fade-up': 'fadeUp .6s ease-out both',
+          'pulse-dot': 'pulseDot 2s ease-in-out infinite',
+          'shimmer': 'shimmer 8s linear infinite'
+        }
+      }
+    }
+  }
+</script>
+<style>
+  html { scroll-behavior: smooth; }
+  body { font-family: 'Inter', sans-serif; }
+  .font-display { font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.02em; }
+  .gradient-text {
+    background: linear-gradient(90deg,#8ed2ff 0%, #3097ff 50%, #a78bfa 100%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .glass {
+    background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01));
+    border: 1px solid rgba(255,255,255,0.07);
+    backdrop-filter: blur(10px);
+  }
+  .light .glass {
+    background: linear-gradient(180deg, rgba(255,255,255,0.7), rgba(255,255,255,0.5));
+    border: 1px solid rgba(15,23,42,0.08);
+  }
+  .grid-bg {
+    background-image:
+      radial-gradient(circle at 20% 0%, rgba(48,151,255,.18), transparent 40%),
+      radial-gradient(circle at 90% 10%, rgba(167,139,250,.15), transparent 45%),
+      linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px);
+    background-size: auto, auto, 40px 40px, 40px 40px;
+  }
+  .light .grid-bg {
+    background-image:
+      radial-gradient(circle at 20% 0%, rgba(48,151,255,.18), transparent 40%),
+      radial-gradient(circle at 90% 10%, rgba(167,139,250,.12), transparent 45%),
+      linear-gradient(rgba(15,23,42,0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(15,23,42,0.05) 1px, transparent 1px);
+    background-size: auto, auto, 40px 40px, 40px 40px;
+  }
+  .timeline-line {
+    background: linear-gradient(90deg, transparent, #3097ff 20%, #a78bfa 80%, transparent);
+  }
+  .shimmer-border {
+    position: relative; overflow: hidden;
+  }
+  .shimmer-border::before {
+    content:''; position:absolute; inset:0; padding:1px; border-radius: inherit;
+    background: linear-gradient(120deg, transparent 30%, rgba(48,151,255,.6), transparent 70%);
+    background-size: 200% 100%;
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor; mask-composite: exclude;
+    animation: shimmer 6s linear infinite;
+    pointer-events:none;
+  }
+  .scroll-x::-webkit-scrollbar { height: 6px; }
+  .scroll-x::-webkit-scrollbar-thumb { background: rgba(48,151,255,.4); border-radius: 6px; }
+  .chip { @apply inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full font-medium; }
+  .tab-active { background: rgba(48,151,255,.15); color:#8ed2ff; border-color: rgba(48,151,255,.4); }
+  .light .tab-active { background: rgba(48,151,255,.12); color:#1860dc; border-color: rgba(48,151,255,.35); }
+  .num { font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body class="bg-ink-900 text-slate-200 antialiased transition-colors duration-300">
+
+<!-- NAV -->
+<header class="sticky top-0 z-50 glass">
+  <div class="max-w-7xl mx-auto px-5 lg:px-8 h-16 flex items-center justify-between">
+    <a href="#top" class="flex items-center gap-2.5">
+      <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-korva-400 to-purple-500 grid place-items-center shadow-glow">
+        <svg viewBox="0 0 24 24" class="w-5 h-5 text-white" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M4 4v16M4 12l8-8M4 12l8 8M14 4l6 8-6 8"/></svg>
+      </div>
+      <div>
+        <div class="font-display font-bold text-lg leading-none">KORVA</div>
+        <div class="text-[10px] tracking-[0.2em] text-slate-400 uppercase">Workforce Cloud</div>
+      </div>
+    </a>
+    <nav class="hidden md:flex items-center gap-7 text-sm text-slate-300">
+      <a href="#workflow" class="hover:text-white">Workflow</a>
+      <a href="#demand" class="hover:text-white">Demand</a>
+      <a href="#journey" class="hover:text-white">Learner</a>
+      <a href="#tasks" class="hover:text-white">WorkCloud</a>
+      <a href="#pay" class="hover:text-white">KORVA Pay</a>
+      <a href="#analytics" class="hover:text-white">Analytics</a>
+      <a href="#admin" class="hover:text-white">Admin</a>
+    </nav>
+    <div class="flex items-center gap-2">
+      <button id="themeToggle" class="w-9 h-9 grid place-items-center rounded-lg glass hover:bg-white/5" aria-label="Toggle theme">
+        <svg id="iconMoon" viewBox="0 0 24 24" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
+      </button>
+      <button class="hidden sm:inline-flex items-center gap-1.5 text-sm px-4 py-2 rounded-lg bg-gradient-to-r from-korva-500 to-purple-500 text-white font-medium hover:brightness-110 shadow-glow">
+        Request Demo
+        <svg viewBox="0 0 24 24" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
+      </button>
+    </div>
+  </div>
+</header>
+
+<!-- HERO -->
+<section id="top" class="relative grid-bg overflow-hidden">
+  <div class="max-w-7xl mx-auto px-5 lg:px-8 pt-20 pb-24 lg:pt-28 lg:pb-32 relative">
+    <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full glass text-xs animate-fade-up">
+      <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse-dot"></span>
+      Discovery + Prototype MVP · v0.9
+    </div>
+    <h1 class="mt-6 font-display text-4xl sm:text-5xl lg:text-7xl font-bold leading-[1.05] animate-fade-up">
+      Where workforce <span class="gradient-text">demand becomes earnings.</span>
+    </h1>
+    <p class="mt-6 max-w-2xl text-base sm:text-lg text-slate-400 animate-fade-up">
+      KORVA Workforce Cloud is the operating system for the modern labour lifecycle —
+      from employer demand intake, through learning and certification, into live
+      WorkCloud tasks, QA, and instant payouts via KORVA Pay.
+    </p>
+    <div class="mt-8 flex flex-wrap gap-3 animate-fade-up">
+      <a href="#workflow" class="px-5 py-3 rounded-xl bg-gradient-to-r from-korva-500 to-purple-500 text-white font-medium shadow-glow hover:brightness-110">Explore the Lifecycle</a>
+      <a href="#analytics" class="px-5 py-3 rounded-xl glass font-medium hover:bg-white/5">See Live Analytics</a>
+    </div>
+
+    <!-- Hero KPI strip -->
+    <div class="mt-14 grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div class="glass rounded-2xl p-5 shimmer-border">
+        <div class="text-xs uppercase tracking-wider text-slate-400">Active Learners</div>
+        <div class="mt-2 font-display text-3xl font-bold num">24,318</div>
+        <div class="mt-1 text-xs text-emerald-400">▲ 12.4% MoM</div>
+      </div>
+      <div class="glass rounded-2xl p-5">
+        <div class="text-xs uppercase tracking-wider text-slate-400">Open Demand</div>
+        <div class="mt-2 font-display text-3xl font-bold num">1,847</div>
+        <div class="mt-1 text-xs text-emerald-400">▲ 6.1% WoW</div>
+      </div>
+      <div class="glass rounded-2xl p-5">
+        <div class="text-xs uppercase tracking-wider text-slate-400">Tasks Completed</div>
+        <div class="mt-2 font-display text-3xl font-bold num">182,540</div>
+        <div class="mt-1 text-xs text-emerald-400">▲ 18.9% MoM</div>
+      </div>
+      <div class="glass rounded-2xl p-5 shimmer-border">
+        <div class="text-xs uppercase tracking-wider text-slate-400">Payouts Settled</div>
+        <div class="mt-2 font-display text-3xl font-bold num">$4.92M</div>
+        <div class="mt-1 text-xs text-emerald-400">▲ 22.7% MoM</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- WORKFLOW TIMELINE -->
+<section id="workflow" class="py-20 lg:py-28">
+  <div class="max-w-7xl mx-auto px-5 lg:px-8">
+    <div class="max-w-3xl">
+      <div class="text-xs uppercase tracking-[0.25em] text-korva-400">The Lifecycle</div>
+      <h2 class="mt-3 font-display text-3xl sm:text-4xl lg:text-5xl font-bold">One platform. Eleven stages. Zero gaps.</h2>
+      <p class="mt-4 text-slate-400">Every step in the workforce journey is observable, governable, and monetizable — from the moment an employer raises demand to the second a worker is paid.</p>
+    </div>
+
+    <div class="mt-14 relative">
+      <div class="hidden lg:block absolute top-7 left-0 right-0 h-px timeline-line"></div>
+      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-11 gap-4 lg:gap-2 relative" id="timelineGrid"></div>
+    </div>
+  </div>
+</section>
+
+<!-- EMPLOYER DEMAND DASHBOARD -->
+<section id="demand" class="py-20 lg:py-24 bg-gradient-to-b from-transparent via-ink-800/60 to-transparent">
+  <div class="max-w-7xl mx-auto px-5 lg:px-8">
+    <div class="flex flex-wrap items-end justify-between gap-4">
+      <div>
+        <div class="text-xs uppercase tracking-[0.25em] text-korva-400">01 · Employer Demand</div>
+        <h2 class="mt-3 font-display text-3xl sm:text-4xl font-bold">Demand Dashboard</h2>
+        <p class="mt-2 text-slate-400 max-w-xl">Live requests from enterprises, BPOs, and platform partners — with workforce sizing, SLA, and commercial approval state.</p>
+      </div>
+      <div class="flex gap-2">
+        <button class="px-3 py-2 text-sm rounded-lg glass tab-active border">All</button>
+        <button class="px-3 py-2 text-sm rounded-lg glass hover:bg-white/5 border border-transparent">Open</button>
+        <button class="px-3 py-2 text-sm rounded-lg glass hover:bg-white/5 border border-transparent">Approved</button>
+      </div>
+    </div>
+
+    <div class="mt-10 grid lg:grid-cols-3 gap-5">
+      <div class="glass rounded-2xl p-6">
+        <div class="flex items-center justify-between">
+          <div class="text-sm text-slate-400">Open Requests</div>
+          <span class="chip bg-amber-500/15 text-amber-300">Pending</span>
+        </div>
+        <div class="mt-2 font-display text-4xl font-bold num">1,847</div>
+        <div class="mt-3 text-xs text-slate-400">Across 42 employers · avg fill time <span class="text-white">5.8 days</span></div>
+        <div class="mt-5 h-2 rounded-full bg-white/5 overflow-hidden"><div class="h-full bg-gradient-to-r from-korva-400 to-purple-400" style="width:62%"></div></div>
+      </div>
+      <div class="glass rounded-2xl p-6">
+        <div class="flex items-center justify-between">
+          <div class="text-sm text-slate-400">Approved Requests</div>
+          <span class="chip bg-emerald-500/15 text-emerald-300">Active</span>
+        </div>
+        <div class="mt-2 font-display text-4xl font-bold num">3,206</div>
+        <div class="mt-3 text-xs text-slate-400">Commercial cleared · routed to learning &amp; talent</div>
+        <div class="mt-5 h-2 rounded-full bg-white/5 overflow-hidden"><div class="h-full bg-gradient-to-r from-emerald-400 to-korva-400" style="width:84%"></div></div>
+      </div>
+      <div class="glass rounded-2xl p-6">
+        <div class="flex items-center justify-between">
+          <div class="text-sm text-slate-400">Fulfilled (30d)</div>
+          <span class="chip bg-korva-500/15 text-korva-300">Settled</span>
+        </div>
+        <div class="mt-2 font-display text-4xl font-bold num">2,418</div>
+        <div class="mt-3 text-xs text-slate-400">Avg margin <span class="text-white">28.6%</span> · NPS <span class="text-white">62</span></div>
+        <div class="mt-5 h-2 rounded-full bg-white/5 overflow-hidden"><div class="h-full bg-gradient-to-r from-purple-400 to-korva-400" style="width:74%"></div></div>
+      </div>
+    </div>
+
+    <!-- Demand cards -->
+    <div class="mt-8 grid md:grid-cols-2 xl:grid-cols-3 gap-5" id="demandCards"></div>
+  </div>
+</section>
+
+<!-- LEARNER JOURNEY -->
+<section id="journey" class="py-20 lg:py-24">
+  <div class="max-w-7xl mx-auto px-5 lg:px-8">
+    <div class="text-xs uppercase tracking-[0.25em] text-korva-400">02 · Learner Journey</div>
+    <h2 class="mt-3 font-display text-3xl sm:text-4xl font-bold">From sign-up to certified, in one stream.</h2>
+
+    <div class="mt-10 grid lg:grid-cols-5 gap-5">
+      <!-- Learner card -->
+      <div class="lg:col-span-2 glass rounded-2xl p-6">
+        <div class="flex items-center gap-4">
+          <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-korva-400 to-purple-500 grid place-items-center font-display font-bold text-xl text-white">AM</div>
+          <div>
+            <div class="font-display text-lg font-semibold">Amara Mensah</div>
+            <div class="text-xs text-slate-400">Learner ID · KW-204881 · Accra, GH</div>
+          </div>
+          <span class="ml-auto chip bg-emerald-500/15 text-emerald-300">Active</span>
+        </div>
+
+        <div class="mt-6 space-y-5">
+          <div>
+            <div class="flex justify-between text-xs"><span class="text-slate-400">Registration</span><span class="text-emerald-300">Complete</span></div>
+            <div class="mt-2 h-1.5 rounded-full bg-white/5 overflow-hidden"><div class="h-full bg-emerald-400" style="width:100%"></div></div>
+          </div>
+          <div>
+            <div class="flex justify-between text-xs"><span class="text-slate-400">Training Progress · CX Foundations</span><span class="text-white">78%</span></div>
+            <div class="mt-2 h-1.5 rounded-full bg-white/5 overflow-hidden"><div class="h-full bg-gradient-to-r from-korva-400 to-purple-400" style="width:78%"></div></div>
+          </div>
+          <div>
+            <div class="flex justify-between text-xs"><span class="text-slate-400">Assessment Score</span><span class="text-white">87 / 100</span></div>
+            <div class="mt-2 h-1.5 rounded-full bg-white/5 overflow-hidden"><div class="h-full bg-gradient-to-r from-amber-300 to-emerald-400" style="width:87%"></div></div>
+          </div>
+          <div>
+            <div class="flex justify-between text-xs"><span class="text-slate-400">Certification Status</span><span class="text-korva-300">Pending Issuance</span></div>
+            <div class="mt-2 h-1.5 rounded-full bg-white/5 overflow-hidden"><div class="h-full bg-gradient-to-r from-korva-400 to-purple-400" style="width:92%"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Cohort stats -->
+      <div class="lg:col-span-3 grid sm:grid-cols-2 gap-5">
+        <div class="glass rounded-2xl p-6">
+          <div class="text-xs uppercase tracking-wider text-slate-400">Cohort Completion</div>
+          <div class="mt-2 font-display text-3xl font-bold num">82.4%</div>
+          <div class="mt-4 h-32"><canvas id="cohortChart"></canvas></div>
+        </div>
+        <div class="glass rounded-2xl p-6">
+          <div class="text-xs uppercase tracking-wider text-slate-400">Assessment Distribution</div>
+          <div class="mt-2 font-display text-3xl font-bold num">81<span class="text-base text-slate-400 ml-1">avg</span></div>
+          <div class="mt-4 h-32"><canvas id="assessChart"></canvas></div>
+        </div>
+        <div class="sm:col-span-2 glass rounded-2xl p-6">
+          <div class="flex items-center justify-between">
+            <div>
+              <div class="text-xs uppercase tracking-wider text-slate-400">Certifications Issued</div>
+              <div class="mt-2 font-display text-3xl font-bold num">14,902</div>
+            </div>
+            <div class="flex -space-x-2">
+              <span class="chip bg-korva-500/15 text-korva-300">CX L1</span>
+              <span class="chip bg-purple-500/15 text-purple-300">Data Ops</span>
+              <span class="chip bg-emerald-500/15 text-emerald-300">QA L2</span>
+            </div>
+          </div>
+          <div class="mt-4 h-24"><canvas id="certChart"></canvas></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TALENT PROFILE -->
+<section class="py-20 lg:py-24 bg-gradient-to-b from-transparent via-ink-800/60 to-transparent">
+  <div class="max-w-7xl mx-auto px-5 lg:px-8">
+    <div class="text-xs uppercase tracking-[0.25em] text-korva-400">03 · Talent Profile</div>
+    <h2 class="mt-3 font-display text-3xl sm:text-4xl font-bold">Every worker, a measurable asset.</h2>
+
+    <div class="mt-10 grid lg:grid-cols-3 gap-5">
+      <div class="glass rounded-2xl p-6">
+        <div class="flex items-center justify-between">
+          <div class="text-sm text-slate-400">Readiness Score</div>
+          <span class="chip bg-emerald-500/15 text-emerald-300">Tier A</span>
+        </div>
+        <div class="mt-3 flex items-end gap-2">
+          <div class="font-display text-5xl font-bold num">92</div>
+          <div class="text-sm text-slate-400 mb-1">/ 100</div>
+        </div>
+        <div class="mt-4 h-2 rounded-full bg-white/5 overflow-hidden"><div class="h-full bg-gradient-to-r from-emerald-400 via-korva-400 to-purple-400" style="width:92%"></div></div>
+        <div class="mt-4 grid grid-cols-3 gap-3 text-center">
+          <div><div class="text-xs text-slate-400">Quality</div><div class="font-display text-lg font-semibold">95</div></div>
+          <div><div class="text-xs text-slate-400">Speed</div><div class="font-display text-lg font-semibold">88</div></div>
+          <div><div class="text-xs text-slate-400">Reliability</div><div class="font-display text-lg font-semibold">94</div></div>
+        </div>
+      </div>
+
+      <div class="glass rounded-2xl p-6">
+        <div class="text-sm text-slate-400">Skills</div>
+        <div class="mt-4 flex flex-wrap gap-2" id="skillTags"></div>
+        <div class="mt-6">
+          <div class="text-xs text-slate-400 mb-2">Top-mastered</div>
+          <div class="space-y-3">
+            <div><div class="flex justify-between text-xs"><span>Customer Support</span><span>96%</span></div><div class="mt-1 h-1.5 rounded-full bg-white/5 overflow-hidden"><div class="h-full bg-korva-400" style="width:96%"></div></div></div>
+            <div><div class="flex justify-between text-xs"><span>Data Annotation</span><span>89%</span></div><div class="mt-1 h-1.5 rounded-full bg-white/5 overflow-hidden"><div class="h-full bg-purple-400" style="width:89%"></div></div></div>
+            <div><div class="flex justify-between text-xs"><span>Content Moderation</span><span>83%</span></div><div class="mt-1 h-1.5 rounded-full bg-white/5 overflow-hidden"><div class="h-full bg-emerald-400" style="width:83%"></div></div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="glass rounded-2xl p-6">
+        <div class="text-sm text-slate-400">Certifications</div>
+        <ul class="mt-4 space-y-3" id="certList"></ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- WORKCLOUD TASKS -->
+<section id="tasks" class="py-20 lg:py-24">
+  <div class="max-w-7xl mx-auto px-5 lg:px-8">
+    <div class="text-xs uppercase tracking-[0.25em] text-korva-400">04 · WorkCloud</div>
+    <h2 class="mt-3 font-display text-3xl sm:text-4xl font-bold">Tasks flow. Workers earn.</h2>
+    <p class="mt-2 text-slate-400 max-w-2xl">A real-time board routing micro-tasks from approved demand to certified workers, with QA and payout baked in.</p>
+
+    <div class="mt-10 grid md:grid-cols-3 gap-5" id="taskBoard"></div>
+  </div>
+</section>
+
+<!-- KORVA PAY LEDGER -->
+<section id="pay" class="py-20 lg:py-24 bg-gradient-to-b from-transparent via-ink-800/60 to-transparent">
+  <div class="max-w-7xl mx-auto px-5 lg:px-8">
+    <div class="flex flex-wrap items-end justify-between gap-4">
+      <div>
+        <div class="text-xs uppercase tracking-[0.25em] text-korva-400">05 · KORVA Pay</div>
+        <h2 class="mt-3 font-display text-3xl sm:text-4xl font-bold">A ledger built for workforce earnings.</h2>
+      </div>
+      <button class="px-4 py-2 rounded-lg bg-gradient-to-r from-korva-500 to-purple-500 text-white text-sm font-medium shadow-glow">Export Ledger</button>
+    </div>
+
+    <div class="mt-10 grid lg:grid-cols-3 gap-5">
+      <div class="glass rounded-2xl p-6">
+        <div class="text-xs uppercase tracking-wider text-slate-400">Lifetime Earnings</div>
+        <div class="mt-2 font-display text-3xl font-bold num">$3,482.50</div>
+        <div class="mt-1 text-xs text-emerald-400">▲ $218.40 this week</div>
+        <div class="mt-4 h-28"><canvas id="earningsChart"></canvas></div>
+      </div>
+      <div class="glass rounded-2xl p-6">
+        <div class="text-xs uppercase tracking-wider text-slate-400">Pending Payout</div>
+        <div class="mt-2 font-display text-3xl font-bold num">$184.20</div>
+        <div class="mt-1 text-xs text-amber-300">Releases Fri · 6 tasks awaiting QA</div>
+        <div class="mt-4 grid grid-cols-3 gap-3 text-center">
+          <div class="glass rounded-xl p-3"><div class="text-[10px] text-slate-400">Mon</div><div class="font-display font-semibold num">$32</div></div>
+          <div class="glass rounded-xl p-3"><div class="text-[10px] text-slate-400">Tue</div><div class="font-display font-semibold num">$41</div></div>
+          <div class="glass rounded-xl p-3"><div class="text-[10px] text-slate-400">Wed</div><div class="font-display font-semibold num">$28</div></div>
+          <div class="glass rounded-xl p-3"><div class="text-[10px] text-slate-400">Thu</div><div class="font-display font-semibold num">$45</div></div>
+          <div class="glass rounded-xl p-3"><div class="text-[10px] text-slate-400">Fri</div><div class="font-display font-semibold num">$38</div></div>
+          <div class="glass rounded-xl p-3 bg-korva-500/10"><div class="text-[10px] text-korva-300">Pay</div><div class="font-display font-semibold num text-korva-200">$184</div></div>
+        </div>
+      </div>
+      <div class="glass rounded-2xl p-6">
+        <div class="text-xs uppercase tracking-wider text-slate-400">Worker Wallet</div>
+        <div class="mt-2 font-display text-3xl font-bold num">$612.05</div>
+        <div class="mt-1 text-xs text-slate-400">Mobile money · MTN •••• 4421</div>
+        <div class="mt-5 space-y-2">
+          <button class="w-full px-4 py-2.5 rounded-lg bg-gradient-to-r from-korva-500 to-purple-500 text-white text-sm font-medium">Withdraw to MoMo</button>
+          <button class="w-full px-4 py-2.5 rounded-lg glass text-sm">Send to Bank</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Ledger -->
+    <div class="mt-8 glass rounded-2xl overflow-hidden">
+      <div class="p-5 flex items-center justify-between border-b border-white/5">
+        <div class="font-display font-semibold">Ledger Transactions</div>
+        <div class="flex gap-2 text-xs">
+          <span class="chip bg-emerald-500/15 text-emerald-300">Settled</span>
+          <span class="chip bg-amber-500/15 text-amber-300">Pending</span>
+          <span class="chip bg-korva-500/15 text-korva-300">Bonus</span>
+        </div>
+      </div>
+      <div class="overflow-x-auto scroll-x">
+        <table class="min-w-full text-sm">
+          <thead class="text-xs uppercase text-slate-400">
+            <tr class="text-left">
+              <th class="px-5 py-3">Txn ID</th><th class="px-5 py-3">Date</th><th class="px-5 py-3">Task</th><th class="px-5 py-3">Employer</th><th class="px-5 py-3">Status</th><th class="px-5 py-3 text-right">Amount</th>
+            </tr>
+          </thead>
+          <tbody id="ledgerBody" class="divide-y divide-white/5"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ANALYTICS -->
+<section id="analytics" class="py-20 lg:py-24">
+  <div class="max-w-7xl mx-auto px-5 lg:px-8">
+    <div class="text-xs uppercase tracking-[0.25em] text-korva-400">06 · Analytics</div>
+    <h2 class="mt-3 font-display text-3xl sm:text-4xl font-bold">A workforce control tower.</h2>
+
+    <div class="mt-10 grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div class="glass rounded-2xl p-5"><div class="text-xs text-slate-400">Fill Rate</div><div class="mt-1 font-display text-2xl font-bold num">94.2%</div><div class="text-xs text-emerald-400 mt-1">▲ 3.1pts</div></div>
+      <div class="glass rounded-2xl p-5"><div class="text-xs text-slate-400">Avg Time-to-Cert</div><div class="mt-1 font-display text-2xl font-bold num">11.4d</div><div class="text-xs text-emerald-400 mt-1">▼ 1.8d</div></div>
+      <div class="glass rounded-2xl p-5"><div class="text-xs text-slate-400">QA Pass Rate</div><div class="mt-1 font-display text-2xl font-bold num">96.8%</div><div class="text-xs text-emerald-400 mt-1">▲ 0.7pts</div></div>
+      <div class="glass rounded-2xl p-5"><div class="text-xs text-slate-400">Worker Retention</div><div class="mt-1 font-display text-2xl font-bold num">81.5%</div><div class="text-xs text-emerald-400 mt-1">▲ 2.4pts</div></div>
+    </div>
+
+    <div class="mt-6 grid lg:grid-cols-3 gap-5">
+      <div class="lg:col-span-2 glass rounded-2xl p-6">
+        <div class="flex items-center justify-between">
+          <div>
+            <div class="font-display font-semibold">Demand vs. Fulfilment</div>
+            <div class="text-xs text-slate-400">Last 12 weeks</div>
+          </div>
+          <div class="flex gap-2 text-xs">
+            <span class="chip bg-korva-500/15 text-korva-300">Demand</span>
+            <span class="chip bg-purple-500/15 text-purple-300">Fulfilled</span>
+          </div>
+        </div>
+        <div class="mt-4 h-72"><canvas id="demandChart"></canvas></div>
+      </div>
+      <div class="glass rounded-2xl p-6">
+        <div class="font-display font-semibold">Workforce by Skill</div>
+        <div class="text-xs text-slate-400">Active certified pool</div>
+        <div class="mt-4 h-72"><canvas id="skillChart"></canvas></div>
+      </div>
+      <div class="glass rounded-2xl p-6">
+        <div class="font-display font-semibold">Earnings Distribution</div>
+        <div class="text-xs text-slate-400">Per worker, 30d</div>
+        <div class="mt-4 h-64"><canvas id="earningsDistChart"></canvas></div>
+      </div>
+      <div class="lg:col-span-2 glass rounded-2xl p-6">
+        <div class="flex items-center justify-between">
+          <div>
+            <div class="font-display font-semibold">Regional Workforce Heat</div>
+            <div class="text-xs text-slate-400">Active workers · last 24h</div>
+          </div>
+          <div class="text-xs text-slate-400">Updated 2m ago</div>
+        </div>
+        <div class="mt-4 h-64"><canvas id="regionChart"></canvas></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ADMIN CONTROL CENTER -->
+<section id="admin" class="py-20 lg:py-24 bg-gradient-to-b from-transparent via-ink-800/60 to-transparent">
+  <div class="max-w-7xl mx-auto px-5 lg:px-8">
+    <div class="text-xs uppercase tracking-[0.25em] text-korva-400">07 · Admin</div>
+    <h2 class="mt-3 font-display text-3xl sm:text-4xl font-bold">Control Center</h2>
+
+    <div class="mt-10 grid lg:grid-cols-3 gap-5">
+      <!-- User management -->
+      <div class="glass rounded-2xl p-6">
+        <div class="flex items-center justify-between">
+          <div class="font-display font-semibold">User Management</div>
+          <button class="text-xs text-korva-300 hover:text-korva-200">+ Invite</button>
+        </div>
+        <ul class="mt-4 divide-y divide-white/5" id="userList"></ul>
+      </div>
+
+      <!-- Demand approvals -->
+      <div class="glass rounded-2xl p-6">
+        <div class="font-display font-semibold">Demand Approvals</div>
+        <div class="text-xs text-slate-400">3 awaiting decision</div>
+        <ul class="mt-4 space-y-3" id="approvalList"></ul>
+      </div>
+
+      <!-- Reporting -->
+      <div class="glass rounded-2xl p-6">
+        <div class="font-display font-semibold">Reporting</div>
+        <div class="text-xs text-slate-400">Auto-generated, ready to share</div>
+        <ul class="mt-4 space-y-3" id="reportList"></ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA / FOOTER -->
+<footer class="border-t border-white/5">
+  <div class="max-w-7xl mx-auto px-5 lg:px-8 py-16 grid lg:grid-cols-2 gap-10 items-center">
+    <div>
+      <h3 class="font-display text-3xl sm:text-4xl font-bold">Build the workforce of the next decade.</h3>
+      <p class="mt-3 text-slate-400 max-w-lg">KORVA Workforce Cloud unifies demand, learning, work, and pay — engineered for emerging markets, ready for global enterprise.</p>
+    </div>
+    <div class="flex flex-wrap gap-3 lg:justify-end">
+      <button class="px-5 py-3 rounded-xl bg-gradient-to-r from-korva-500 to-purple-500 text-white font-medium shadow-glow">Book a Walkthrough</button>
+      <button class="px-5 py-3 rounded-xl glass font-medium">Download One-Pager</button>
+    </div>
+  </div>
+  <div class="border-t border-white/5">
+    <div class="max-w-7xl mx-auto px-5 lg:px-8 py-6 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500">
+      <div>© 2026 KORVA · Workforce Cloud · Discovery + Prototype MVP</div>
+      <div class="flex gap-5"><a href="#" class="hover:text-slate-300">Privacy</a><a href="#" class="hover:text-slate-300">Security</a><a href="#" class="hover:text-slate-300">Status</a></div>
+    </div>
+  </div>
+</footer>
+
+<script>
+/* ---------- THEME TOGGLE ---------- */
+const root = document.documentElement;
+const themeBtn = document.getElementById('themeToggle');
+function applyTheme(mode){
+  if(mode === 'light'){ root.classList.remove('dark'); root.classList.add('light'); document.body.classList.remove('bg-ink-900','text-slate-200'); document.body.classList.add('bg-slate-50','text-slate-800'); }
+  else { root.classList.add('dark'); root.classList.remove('light'); document.body.classList.add('bg-ink-900','text-slate-200'); document.body.classList.remove('bg-slate-50','text-slate-800'); }
+  refreshCharts();
+}
+themeBtn.addEventListener('click', ()=>{
+  applyTheme(root.classList.contains('dark') ? 'light' : 'dark');
+});
+
+/* ---------- TIMELINE ---------- */
+const stages = [
+  {n:'01', t:'Demand Intake', i:'M4 6h16M4 12h16M4 18h10'},
+  {n:'02', t:'Commercial Approval', i:'M9 12l2 2 4-4'},
+  {n:'03', t:'Learner Onboarding', i:'M16 11V7a4 4 0 10-8 0v4'},
+  {n:'04', t:'Learning', i:'M4 19V5l8 4 8-4v14'},
+  {n:'05', t:'Assessment', i:'M9 11l3 3 8-8'},
+  {n:'06', t:'Certification', i:'M12 2l3 7h7l-5.5 4 2 7L12 16l-6.5 4 2-7L2 9h7z'},
+  {n:'07', t:'Talent Profile', i:'M5 20a7 7 0 0114 0'},
+  {n:'08', t:'WorkCloud Tasks', i:'M3 7h18M3 12h18M3 17h12'},
+  {n:'09', t:'QA Review', i:'M3 12l4 4L21 4'},
+  {n:'10', t:'Earnings Ledger', i:'M3 6h18v12H3z M3 10h18'},
+  {n:'11', t:'Reporting', i:'M4 19V9m6 10V5m6 14v-8'},
+];
+document.getElementById('timelineGrid').innerHTML = stages.map((s,i)=>`
+  <div class="relative animate-fade-up" style="animation-delay:${i*60}ms">
+    <div class="mx-auto w-14 h-14 rounded-2xl glass grid place-items-center relative z-10 shimmer-border">
+      <svg viewBox="0 0 24 24" class="w-6 h-6 text-korva-300" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="${s.i}"/></svg>
+    </div>
+    <div class="mt-3 text-center">
+      <div class="text-[10px] tracking-widest text-slate-500">${s.n}</div>
+      <div class="text-xs font-medium leading-tight mt-0.5">${s.t}</div>
+    </div>
+  </div>`).join('');
+
+/* ---------- DEMAND CARDS ---------- */
+const demand = [
+  {co:'Lumen Telecom', logo:'LT', role:'CX Agent · Tier 1', seats:120, region:'Lagos · Accra', sla:'14 days', pay:'$4.20 / hr', status:'Open', tone:'amber'},
+  {co:'Helios Health', logo:'HH', role:'Claims Reviewer', seats:60, region:'Nairobi', sla:'21 days', pay:'$5.10 / hr', status:'Approved', tone:'emerald'},
+  {co:'Northbeam AI', logo:'NB', role:'Data Annotator', seats:300, region:'Remote · Pan-Africa', sla:'7 days', pay:'$0.42 / task', status:'Open', tone:'amber'},
+  {co:'Acacia Bank', logo:'AB', role:'KYC Verifier', seats:85, region:'Lagos', sla:'10 days', pay:'$4.80 / hr', status:'Approved', tone:'emerald'},
+  {co:'PulseRetail', logo:'PR', role:'Catalog Ops', seats:45, region:'Kigali', sla:'30 days', pay:'$3.90 / hr', status:'Open', tone:'amber'},
+  {co:'Stratos Media', logo:'SM', role:'Content Moderator', seats:200, region:'Remote', sla:'14 days', pay:'$4.50 / hr', status:'Approved', tone:'emerald'},
+];
+document.getElementById('demandCards').innerHTML = demand.map(d=>`
+  <div class="glass rounded-2xl p-5 hover:bg-white/[0.03] transition">
+    <div class="flex items-start justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-11 h-11 rounded-xl bg-gradient-to-br from-korva-500/30 to-purple-500/30 grid place-items-center font-display font-bold">${d.logo}</div>
+        <div>
+          <div class="font-semibold">${d.co}</div>
+          <div class="text-xs text-slate-400">${d.role}</div>
+        </div>
+      </div>
+      <span class="chip bg-${d.tone}-500/15 text-${d.tone}-300">${d.status}</span>
+    </div>
+    <div class="mt-5 grid grid-cols-3 gap-3 text-center">
+      <div><div class="text-[10px] uppercase text-slate-500">Seats</div><div class="font-display font-semibold num">${d.seats}</div></div>
+      <div><div class="text-[10px] uppercase text-slate-500">SLA</div><div class="font-display font-semibold num">${d.sla}</div></div>
+      <div><div class="text-[10px] uppercase text-slate-500">Rate</div><div class="font-display font-semibold num">${d.pay}</div></div>
+    </div>
+    <div class="mt-4 text-xs text-slate-400">${d.region}</div>
+    <div class="mt-4 flex gap-2">
+      <button class="flex-1 px-3 py-2 rounded-lg glass text-xs hover:bg-white/5">View</button>
+      <button class="flex-1 px-3 py-2 rounded-lg bg-gradient-to-r from-korva-500 to-purple-500 text-white text-xs font-medium">Allocate</button>
+    </div>
+  </div>`).join('');
+
+/* ---------- SKILLS / CERTS ---------- */
+const skills = ['Customer Support','Data Annotation','KYC','Content Moderation','Voice Support','Chat Ops','Claims Review','English C1','Twi','Yoruba'];
+document.getElementById('skillTags').innerHTML = skills.map(s=>`<span class="chip glass border border-white/10">${s}</span>`).join('');
+
+const certs = [
+  {n:'KORVA CX Foundations', d:'Issued Mar 2026', t:'emerald'},
+  {n:'Data Annotation L2', d:'Issued Jan 2026', t:'korva'},
+  {n:'QA Reviewer L1', d:'Issued Nov 2025', t:'purple'},
+  {n:'KYC Compliance', d:'Issued Sep 2025', t:'amber'},
+];
+document.getElementById('certList').innerHTML = certs.map(c=>`
+  <li class="flex items-center gap-3">
+    <div class="w-9 h-9 rounded-lg bg-${c.t}-500/15 text-${c.t}-300 grid place-items-center">
+      <svg viewBox="0 0 24 24" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3 7h7l-5.5 4 2 7L12 16l-6.5 4 2-7L2 9h7z"/></svg>
+    </div>
+    <div class="flex-1">
+      <div class="text-sm font-medium">${c.n}</div>
+      <div class="text-xs text-slate-400">${c.d}</div>
+    </div>
+    <span class="chip bg-${c.t}-500/15 text-${c.t}-300">Verified</span>
+  </li>`).join('');
+
+/* ---------- TASK BOARD ---------- */
+const cols = [
+  {t:'Available', tone:'korva', items:[
+    {n:'Annotate retail images', m:'Northbeam AI · 250 units', p:'$0.42/ea'},
+    {n:'Verify KYC documents', m:'Acacia Bank · 80 cases', p:'$1.10/ea'},
+    {n:'Moderate UGC clips', m:'Stratos · 120 items', p:'$0.65/ea'},
+  ]},
+  {t:'Assigned', tone:'amber', items:[
+    {n:'CX Live Chat · Shift 14', m:'Lumen Telecom · 4h', p:'$4.20/hr'},
+    {n:'Claims triage batch #221', m:'Helios Health · 60 cases', p:'$0.95/ea'},
+  ]},
+  {t:'Completed', tone:'emerald', items:[
+    {n:'Catalog enrichment batch', m:'PulseRetail · 320 SKUs', p:'$48.60'},
+    {n:'Voice QA session', m:'Lumen Telecom · 3h', p:'$12.60'},
+    {n:'Annotation set #19', m:'Northbeam AI · 410 units', p:'$172.20'},
+  ]},
+];
+document.getElementById('taskBoard').innerHTML = cols.map(c=>`
+  <div class="glass rounded-2xl p-5">
+    <div class="flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <span class="w-2 h-2 rounded-full bg-${c.tone}-400"></span>
+        <div class="font-display font-semibold">${c.t}</div>
+      </div>
+      <span class="text-xs text-slate-400">${c.items.length} tasks</span>
+    </div>
+    <div class="mt-4 space-y-3">
+      ${c.items.map(it=>`
+        <div class="glass rounded-xl p-4 hover:bg-white/[0.04] transition">
+          <div class="flex items-start justify-between gap-2">
+            <div class="text-sm font-medium leading-snug">${it.n}</div>
+            <span class="chip bg-${c.tone}-500/15 text-${c.tone}-300 shrink-0">${it.p}</span>
+          </div>
+          <div class="mt-1.5 text-xs text-slate-400">${it.m}</div>
+          <div class="mt-3 flex gap-2">
+            <button class="flex-1 text-xs px-3 py-1.5 rounded-lg glass hover:bg-white/5">Details</button>
+            <button class="flex-1 text-xs px-3 py-1.5 rounded-lg bg-gradient-to-r from-korva-500 to-purple-500 text-white font-medium">${c.t==='Available'?'Claim':c.t==='Assigned'?'Open':'Receipt'}</button>
+          </div>
+        </div>`).join('')}
+    </div>
+  </div>`).join('');
+
+/* ---------- LEDGER ---------- */
+const ledger = [
+  {id:'KV-9821', d:'Apr 12', task:'Annotation set #19', co:'Northbeam AI', s:'Settled', tone:'emerald', a:'+ $172.20'},
+  {id:'KV-9818', d:'Apr 12', task:'Voice QA session', co:'Lumen Telecom', s:'Settled', tone:'emerald', a:'+ $12.60'},
+  {id:'KV-9802', d:'Apr 11', task:'Catalog enrichment', co:'PulseRetail', s:'Settled', tone:'emerald', a:'+ $48.60'},
+  {id:'KV-9799', d:'Apr 11', task:'Quality bonus · April', co:'KORVA', s:'Bonus', tone:'korva', a:'+ $20.00'},
+  {id:'KV-9784', d:'Apr 10', task:'KYC review #441', co:'Acacia Bank', s:'Pending', tone:'amber', a:'+ $34.80'},
+  {id:'KV-9772', d:'Apr 10', task:'Moderation batch #88', co:'Stratos Media', s:'Pending', tone:'amber', a:'+ $52.00'},
+  {id:'KV-9760', d:'Apr 09', task:'Withdrawal · MTN MoMo', co:'KORVA Pay', s:'Settled', tone:'emerald', a:'− $250.00'},
+];
+document.getElementById('ledgerBody').innerHTML = ledger.map(r=>`
+  <tr class="hover:bg-white/[0.03]">
+    <td class="px-5 py-3 font-mono text-xs text-slate-400">${r.id}</td>
+    <td class="px-5 py-3 text-slate-400">${r.d}</td>
+    <td class="px-5 py-3">${r.task}</td>
+    <td class="px-5 py-3 text-slate-400">${r.co}</td>
+    <td class="px-5 py-3"><span class="chip bg-${r.tone}-500/15 text-${r.tone}-300">${r.s}</span></td>
+    <td class="px-5 py-3 text-right font-medium num ${r.a.startsWith('−')?'text-rose-300':'text-emerald-300'}">${r.a}</td>
+  </tr>`).join('');
+
+/* ---------- USERS / APPROVALS / REPORTS ---------- */
+const users = [
+  {n:'Priya Okonkwo', r:'Super Admin', t:'emerald'},
+  {n:'Daniel Mwangi', r:'Ops Manager', t:'korva'},
+  {n:'Sara Bensaid', r:'Commercial', t:'purple'},
+  {n:'Tunde Adeyemi', r:'QA Lead', t:'amber'},
+  {n:'Lina Kone', r:'Training', t:'korva'},
+];
+document.getElementById('userList').innerHTML = users.map(u=>`
+  <li class="py-3 flex items-center gap-3">
+    <div class="w-9 h-9 rounded-full bg-gradient-to-br from-korva-500/40 to-purple-500/40 grid place-items-center text-xs font-semibold">${u.n.split(' ').map(x=>x[0]).join('')}</div>
+    <div class="flex-1"><div class="text-sm font-medium">${u.n}</div><div class="text-xs text-slate-400">${u.r}</div></div>
+    <span class="chip bg-${u.t}-500/15 text-${u.t}-300">Active</span>
+  </li>`).join('');
+
+const approvals = [
+  {co:'Lumen Telecom', n:'120 CX Agents · $4.20/hr', v:'$84,000 / mo'},
+  {co:'Northbeam AI', n:'300 Annotators · $0.42/task', v:'$126,000 / mo'},
+  {co:'PulseRetail', n:'45 Catalog Ops · $3.90/hr', v:'$28,080 / mo'},
+];
+document.getElementById('approvalList').innerHTML = approvals.map(a=>`
+  <li class="glass rounded-xl p-4">
+    <div class="flex items-center justify-between">
+      <div>
+        <div class="text-sm font-medium">${a.co}</div>
+        <div class="text-xs text-slate-400">${a.n}</div>
+      </div>
+      <div class="text-xs text-korva-300 num">${a.v}</div>
+    </div>
+    <div class="mt-3 flex gap-2">
+      <button class="flex-1 text-xs px-3 py-1.5 rounded-lg bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/20">Approve</button>
+      <button class="flex-1 text-xs px-3 py-1.5 rounded-lg glass hover:bg-white/5">Reject</button>
+    </div>
+  </li>`).join('');
+
+const reports = [
+  {n:'Weekly Fulfilment · W15', d:'Generated 2h ago', t:'PDF'},
+  {n:'Payout Reconciliation · Mar', d:'Generated Apr 02', t:'XLSX'},
+  {n:'Learner Outcomes · Q1 2026', d:'Generated Apr 01', t:'PDF'},
+  {n:'Employer NPS Snapshot', d:'Generated Mar 28', t:'CSV'},
+];
+document.getElementById('reportList').innerHTML = reports.map(r=>`
+  <li class="glass rounded-xl p-3 flex items-center gap-3">
+    <div class="w-9 h-9 rounded-lg bg-korva-500/15 text-korva-300 grid place-items-center text-[10px] font-bold">${r.t}</div>
+    <div class="flex-1"><div class="text-sm font-medium">${r.n}</div><div class="text-xs text-slate-400">${r.d}</div></div>
+    <button class="text-xs text-korva-300 hover:text-korva-200">Download ↓</button>
+  </li>`).join('');
+
+/* ---------- CHARTS ---------- */
+const chartInstances = [];
+function gridColor(){ return root.classList.contains('dark') ? 'rgba(255,255,255,0.06)' : 'rgba(15,23,42,0.08)'; }
+function tickColor(){ return root.classList.contains('dark') ? '#94a3b8' : '#475569'; }
+
+function lineOpts(){return{
+  responsive:true, maintainAspectRatio:false,
+  plugins:{legend:{display:false}},
+  scales:{
+    x:{grid:{color:gridColor()}, ticks:{color:tickColor(), font:{size:10}}},
+    y:{grid:{color:gridColor()}, ticks:{color:tickColor(), font:{size:10}}}
+  }
+};}
+
+function makeGradient(ctx, c1, c2){
+  const g = ctx.createLinearGradient(0,0,0,200);
+  g.addColorStop(0,c1); g.addColorStop(1,c2); return g;
+}
+
+function build(){
+  // cohort
+  const c1 = document.getElementById('cohortChart').getContext('2d');
+  chartInstances.push(new Chart(c1,{type:'line',data:{labels:['W1','W2','W3','W4','W5','W6','W7','W8'],
+    datasets:[{data:[42,55,61,68,72,76,80,82],borderColor:'#3097ff',backgroundColor:makeGradient(c1,'rgba(48,151,255,.45)','rgba(48,151,255,0)'),fill:true,tension:.4,borderWidth:2,pointRadius:0}]},options:lineOpts()}));
+
+  const c2 = document.getElementById('assessChart').getContext('2d');
+  chartInstances.push(new Chart(c2,{type:'bar',data:{labels:['<60','60-69','70-79','80-89','90+'],
+    datasets:[{data:[6,14,28,34,18],backgroundColor:['#475569','#64748b','#3097ff','#8b5cf6','#10b981'],borderRadius:6}]},options:lineOpts()}));
+
+  const c3 = document.getElementById('certChart').getContext('2d');
+  chartInstances.push(new Chart(c3,{type:'line',data:{labels:Array.from({length:12},(_,i)=>'M'+(i+1)),
+    datasets:[{data:[820,950,1100,1280,1410,1550,1720,1880,2010,2140,2280,2460],borderColor:'#a78bfa',backgroundColor:makeGradient(c3,'rgba(167,139,250,.4)','rgba(167,139,250,0)'),fill:true,tension:.4,borderWidth:2,pointRadius:0}]},options:lineOpts()}));
+
+  const c4 = document.getElementById('earningsChart').getContext('2d');
+  chartInstances.push(new Chart(c4,{type:'line',data:{labels:['W1','W2','W3','W4','W5','W6','W7','W8'],
+    datasets:[{data:[120,180,150,210,240,200,280,310],borderColor:'#10b981',backgroundColor:makeGradient(c4,'rgba(16,185,129,.4)','rgba(16,185,129,0)'),fill:true,tension:.4,borderWidth:2,pointRadius:0}]},options:lineOpts()}));
+
+  const dc = document.getElementById('demandChart').getContext('2d');
+  chartInstances.push(new Chart(dc,{type:'line',data:{labels:Array.from({length:12},(_,i)=>'W'+(i+1)),
+    datasets:[
+      {label:'Demand',data:[820,910,1020,980,1180,1240,1320,1410,1380,1520,1660,1847],borderColor:'#3097ff',backgroundColor:makeGradient(dc,'rgba(48,151,255,.35)','rgba(48,151,255,0)'),fill:true,tension:.4,borderWidth:2,pointRadius:0},
+      {label:'Fulfilled',data:[760,860,950,940,1110,1180,1260,1330,1320,1450,1580,1742],borderColor:'#a78bfa',backgroundColor:'transparent',tension:.4,borderWidth:2,pointRadius:0,borderDash:[5,4]}
+    ]},options:lineOpts()}));
+
+  const sc = document.getElementById('skillChart').getContext('2d');
+  chartInstances.push(new Chart(sc,{type:'doughnut',data:{labels:['CX','Annotation','KYC','Moderation','QA','Other'],
+    datasets:[{data:[34,22,14,12,10,8],backgroundColor:['#3097ff','#a78bfa','#10b981','#f59e0b','#ef4444','#64748b'],borderWidth:0}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'65%',plugins:{legend:{position:'bottom',labels:{color:tickColor(),font:{size:11},boxWidth:10}}}}}));
+
+  const ed = document.getElementById('earningsDistChart').getContext('2d');
+  chartInstances.push(new Chart(ed,{type:'bar',data:{labels:['<$50','$50-100','$100-200','$200-400','$400+'],
+    datasets:[{data:[18,32,28,16,6],backgroundColor:'rgba(48,151,255,.7)',borderRadius:6}]},options:lineOpts()}));
+
+  const rc = document.getElementById('regionChart').getContext('2d');
+  chartInstances.push(new Chart(rc,{type:'bar',data:{labels:['Lagos','Accra','Nairobi','Kigali','Cape Town','Dakar','Cairo'],
+    datasets:[{data:[4820,3640,3120,1880,1620,1240,980],backgroundColor:makeGradient(rc,'#3097ff','#a78bfa'),borderRadius:8}]},options:lineOpts()}));
+}
+function refreshCharts(){
+  chartInstances.forEach(c=>c.destroy());
+  chartInstances.length=0;
+  build();
+}
+build();
+</script>
+</body>
+</html>
